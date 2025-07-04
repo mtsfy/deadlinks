@@ -4,6 +4,7 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
+	"deadlinks/internal/crawler"
 	"fmt"
 	"os"
 
@@ -27,7 +28,8 @@ within the domain and identifies those that return error responses.`,
 		}
 
 		fmt.Printf("Scanning %s for dead links...\n", url)
-		//logic
+		crawler.Init(url)
+		crawler.Start()
 	},
 }
 
