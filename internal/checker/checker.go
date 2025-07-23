@@ -2,10 +2,14 @@ package checker
 
 import (
 	"net/http"
+	"time"
 )
 
 func IsDead(link string) bool {
-	resp, err := http.Get(link)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Head(link)
 	if err != nil {
 		return true
 	}
