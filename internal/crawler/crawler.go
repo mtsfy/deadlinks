@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,24 @@ var Visited = make(map[string]bool)
 var BaseDomain string
 var BaseURL string
 var DeadLinksSet = make(map[string]bool, 0)
+var mu sync.Mutex
+
+func Init(link string) {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		panic(err)
+	}
+
+	if parsedURL.Path == "/" {
+		parsedURL.Path = ""
+	}
+
+	normalizedURL := parsedURL.String()
+
+	BaseDomain = getDomain(normalizedURL)
+	BaseURL = getBaseURL(normalizedURL)
+	Q.PushBack(normalizedURL)
+}
 
 func Start() []string {
 	for Q.Len() > 0 {
@@ -34,18 +53,63 @@ func Start() []string {
 			continue
 		}
 
-		for _, link := range links {
-			fullURL, isInternal := checkDomain(link)
-			if isInternal && !Visited[fullURL] {
-				isDeadLink := checker.IsDead(fullURL)
-				if isDeadLink {
-					DeadLinksSet[fullURL] = true
-					continue
+		linkCh := make(chan string, len(links))
+		resultCh := make(chan struct {
+			url        string
+			isDead     bool
+			isInternal bool
+		})
+
+		workers := 10
+		var wg sync.WaitGroup
+
+		for i := range workers {
+			wg.Add(1)
+			go func(workerID int) {
+				defer wg.Done()
+				for url := range linkCh {
+					fullURL, isInternal := checkDomain(url)
+
+					mu.Lock()
+					alreadyVisited := Visited[fullURL]
+					mu.Unlock()
+
+					if !alreadyVisited {
+						isDead := checker.IsDead(fullURL)
+						resultCh <- struct {
+							url        string
+							isDead     bool
+							isInternal bool
+						}{fullURL, isDead, isInternal}
+					}
 				}
-				Q.PushBack(fullURL)
-			}
+			}(i)
 		}
+
+		for _, link := range links {
+			linkCh <- link
+		}
+		close(linkCh)
+
+		go func() {
+			wg.Wait()
+			close(resultCh)
+		}()
+
+		for result := range resultCh {
+			mu.Lock()
+			Visited[result.url] = true
+
+			if result.isDead {
+				DeadLinksSet[result.url] = true
+			} else if result.isInternal {
+				Q.PushBack(result.url)
+			}
+			mu.Unlock()
+		}
+		mu.Lock()
 		Visited[url] = true
+		mu.Unlock()
 	}
 
 	deadLinks := make([]string, 0)
@@ -54,23 +118,6 @@ func Start() []string {
 	}
 
 	return deadLinks
-}
-
-func Init(link string) {
-	parsedURL, err := url.Parse(link)
-	if err != nil {
-		panic(err)
-	}
-
-	if parsedURL.Path == "/" {
-		parsedURL.Path = ""
-	}
-
-	normalizedURL := parsedURL.String()
-
-	BaseDomain = getDomain(normalizedURL)
-	BaseURL = getBaseURL(normalizedURL)
-	Q.PushBack(normalizedURL)
 }
 
 func getDomain(link string) string {
