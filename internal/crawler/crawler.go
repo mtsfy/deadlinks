@@ -12,11 +12,11 @@ import (
 	"time"
 )
 
-var Q list.List
-var Visited = make(map[string]bool)
-var BaseDomain string
-var BaseURL string
-var DeadLinksSet = make(map[string]bool, 0)
+var q list.List
+var visited = make(map[string]bool)
+var baseDomain string
+var baseURL string
+var deadLinks = make(map[string][]string, 0)
 var mu sync.Mutex
 
 func Init(link string) {
@@ -31,19 +31,19 @@ func Init(link string) {
 
 	normalizedURL := parsedURL.String()
 
-	BaseDomain = getDomain(normalizedURL)
-	BaseURL = getBaseURL(normalizedURL)
-	Q.PushBack(normalizedURL)
+	baseDomain = getDomain(normalizedURL)
+	baseURL = getBaseURL(normalizedURL)
+	q.PushBack(normalizedURL)
 }
 
-func Start() []string {
-	for Q.Len() > 0 {
-		url := Q.Remove(Q.Front()).(string)
+func Start() map[string][]string {
+	for q.Len() > 0 {
+		parentUrl := q.Remove(q.Front()).(string)
 		t := time.Now()
 
-		fmt.Printf("[%s]: %s\n", t.Format("2006-01-02 15:04:05"), url)
+		fmt.Printf("[%s]: %s\n", t.Format("2006-01-02 15:04:05"), parentUrl)
 
-		html, err := scraper.Fetch(url)
+		html, err := scraper.Fetch(parentUrl)
 		if err != nil {
 			continue
 		}
@@ -55,7 +55,8 @@ func Start() []string {
 
 		linkCh := make(chan string, len(links))
 		resultCh := make(chan struct {
-			url        string
+			page       string
+			link       string
 			isDead     bool
 			isInternal bool
 		})
@@ -67,20 +68,21 @@ func Start() []string {
 			wg.Add(1)
 			go func(workerID int) {
 				defer wg.Done()
-				for url := range linkCh {
-					fullURL, isInternal := checkDomain(url)
+				for link := range linkCh {
+					fullURL, isInternal := checkDomain(link)
 
 					mu.Lock()
-					alreadyVisited := Visited[fullURL]
+					alreadyVisited := visited[fullURL]
 					mu.Unlock()
 
 					if !alreadyVisited {
 						isDead := checker.IsDead(fullURL)
 						resultCh <- struct {
-							url        string
+							page       string
+							link       string
 							isDead     bool
 							isInternal bool
-						}{fullURL, isDead, isInternal}
+						}{parentUrl, fullURL, isDead, isInternal}
 					}
 				}
 			}(i)
@@ -98,23 +100,18 @@ func Start() []string {
 
 		for result := range resultCh {
 			mu.Lock()
-			Visited[result.url] = true
+			visited[result.link] = true
 
 			if result.isDead {
-				DeadLinksSet[result.url] = true
+				deadLinks[result.page] = append(deadLinks[result.page], result.link)
 			} else if result.isInternal {
-				Q.PushBack(result.url)
+				q.PushBack(result.link)
 			}
 			mu.Unlock()
 		}
 		mu.Lock()
-		Visited[url] = true
+		visited[parentUrl] = true
 		mu.Unlock()
-	}
-
-	deadLinks := make([]string, 0)
-	for dl := range DeadLinksSet {
-		deadLinks = append(deadLinks, dl)
 	}
 
 	return deadLinks
@@ -150,7 +147,7 @@ func checkDomain(link string) (string, bool) {
 	if strings.HasPrefix(link, "http") {
 		fullURL = link
 	} else {
-		baseURL := strings.TrimSuffix(BaseURL, "/")
+		baseURL := strings.TrimSuffix(baseURL, "/")
 		fullURL = baseURL + link
 	}
 
@@ -164,5 +161,5 @@ func checkDomain(link string) (string, bool) {
 	}
 
 	normalizedURL := parsedURL.String()
-	return normalizedURL, BaseDomain == getDomain(normalizedURL)
+	return normalizedURL, baseDomain == getDomain(normalizedURL)
 }
