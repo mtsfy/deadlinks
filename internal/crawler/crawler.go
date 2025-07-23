@@ -17,7 +17,7 @@ var BaseDomain string
 var BaseURL string
 var DeadLinksSet = make(map[string]bool, 0)
 
-func Start() {
+func Start() []string {
 	for Q.Len() > 0 {
 		url := Q.Remove(Q.Front()).(string)
 		t := time.Now()
@@ -53,13 +53,24 @@ func Start() {
 		deadLinks = append(deadLinks, dl)
 	}
 
-	fmt.Println(deadLinks)
+	return deadLinks
 }
 
-func Init(url string) {
-	BaseDomain = getDomain(url)
-	BaseURL = getBaseURL(url)
-	Q.PushBack(url)
+func Init(link string) {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		panic(err)
+	}
+
+	if parsedURL.Path == "/" {
+		parsedURL.Path = ""
+	}
+
+	normalizedURL := parsedURL.String()
+
+	BaseDomain = getDomain(normalizedURL)
+	BaseURL = getBaseURL(normalizedURL)
+	Q.PushBack(normalizedURL)
 }
 
 func getDomain(link string) string {
@@ -86,13 +97,25 @@ func getBaseURL(link string) string {
 	return parsedURL.String()
 }
 
-func checkDomain(url string) (string, bool) {
+func checkDomain(link string) (string, bool) {
 	var fullURL string
-	if strings.HasPrefix(url, "http") {
-		fullURL = url
+
+	if strings.HasPrefix(link, "http") {
+		fullURL = link
 	} else {
 		baseURL := strings.TrimSuffix(BaseURL, "/")
-		fullURL = baseURL + url
+		fullURL = baseURL + link
 	}
-	return fullURL, BaseDomain == getDomain(fullURL)
+
+	parsedURL, err := url.Parse(fullURL)
+	if err != nil {
+		return fullURL, false
+	}
+
+	if parsedURL.Path == "/" {
+		parsedURL.Path = ""
+	}
+
+	normalizedURL := parsedURL.String()
+	return normalizedURL, BaseDomain == getDomain(normalizedURL)
 }
