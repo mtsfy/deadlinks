@@ -41,7 +41,7 @@ func Start() map[string][]string {
 		parentUrl := q.Remove(q.Front()).(string)
 		t := time.Now()
 
-		fmt.Printf("[%s]: %s\n", t.Format("2006-01-02 15:04:05"), parentUrl)
+		fmt.Printf("\033[33m[%s]: %s\n", t.Format("2006-01-02 15:04:05"), parentUrl)
 
 		html, err := scraper.Fetch(parentUrl)
 		if err != nil {

@@ -7,6 +7,7 @@ import (
 	"deadlinks/internal/crawler"
 	"fmt"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 )
@@ -27,9 +28,32 @@ within the domain and identifies those that return error responses.`,
 			os.Exit(1)
 		}
 
-		fmt.Printf("Scanning %s for dead links...\n", url)
 		crawler.Init(url)
-		crawler.Start()
+		deadLinks := crawler.Start()
+
+		if len(deadLinks) == 0 {
+			fmt.Println("✅ No dead links found!")
+			return
+		}
+
+		totalDeadLinks := 0
+		for _, links := range deadLinks {
+			totalDeadLinks += len(links)
+		}
+
+		fmt.Printf("\n\033[31mFound %d dead links:\n\n\033[97m", totalDeadLinks)
+
+		w := tabwriter.NewWriter(os.Stdout, 10, 0, 3, ' ', 0)
+		defer w.Flush()
+
+		fmt.Fprintln(w, "PAGE\tLINK\tSTATUS")
+		fmt.Fprintln(w, "----\t---------\t------")
+
+		for page, links := range deadLinks {
+			for _, link := range links {
+				fmt.Fprintf(w, "%s\t%s\t❌ Dead\n", page, link)
+			}
+		}
 	},
 }
 
