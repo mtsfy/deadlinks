@@ -31,9 +31,20 @@ func Init(link string) {
 
 	normalizedURL := parsedURL.String()
 
-	baseDomain = getDomain(normalizedURL)
+	baseDomain = parsedURL.Hostname()
 	baseURL = getBaseURL(normalizedURL)
 	q.PushBack(normalizedURL)
+}
+
+func getBaseURL(link string) string {
+	parsedURL, err := url.Parse(link)
+	if err != nil {
+		panic(err)
+	}
+	parsedURL.Path = ""
+	parsedURL.RawQuery = ""
+	parsedURL.Fragment = ""
+	return parsedURL.String()
 }
 
 func Start() map[string][]string {
@@ -120,25 +131,14 @@ func Start() map[string][]string {
 func getDomain(link string) string {
 	parsedURL, err := url.Parse(link)
 	if err != nil {
-		panic(err)
+		return ""
 	}
-	hostname := parsedURL.Hostname()
-	parts := strings.Split(hostname, ".")
-	if len(parts) < 2 {
-		return hostname
-	}
-	return parts[len(parts)-2]
+	return parsedURL.Hostname()
 }
 
-func getBaseURL(link string) string {
-	parsedURL, err := url.Parse(link)
-	if err != nil {
-		panic(err)
-	}
-	parsedURL.Path = ""
-	parsedURL.RawQuery = ""
-	parsedURL.Fragment = ""
-	return parsedURL.String()
+func isExactDomain(link, targetDomain string) bool {
+	linkDomain := getDomain(link)
+	return linkDomain == targetDomain
 }
 
 func checkDomain(link string) (string, bool) {
@@ -161,5 +161,6 @@ func checkDomain(link string) (string, bool) {
 	}
 
 	normalizedURL := parsedURL.String()
-	return normalizedURL, baseDomain == getDomain(normalizedURL)
+
+	return normalizedURL, isExactDomain(normalizedURL, baseDomain)
 }

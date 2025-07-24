@@ -21,7 +21,7 @@ within the domain and identifies those that return error responses.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
 		url, _ := cmd.Flags().GetString("url")
-		fmt.Println("URL:", url)
+		// fmt.Println("URL:", url)
 		if url == "" {
 			fmt.Fprintf(os.Stderr, "Error: url flag is required\n")
 			cmd.Help()
@@ -32,7 +32,7 @@ within the domain and identifies those that return error responses.`,
 		deadLinks := crawler.Start()
 
 		if len(deadLinks) == 0 {
-			fmt.Println("✅ No dead links found!")
+			fmt.Println("\033[32m\n✅ No dead links found!")
 			return
 		}
 

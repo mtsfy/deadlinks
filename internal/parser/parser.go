@@ -22,7 +22,11 @@ func Extract(data string) ([]string, error) {
 			for _, a := range n.Attr {
 				if a.Key == "href" {
 					if a.Key == "href" && a.Val != "" && !strings.HasPrefix(a.Val, "#") {
-						linkSet[a.Val] = true
+						link := strings.TrimSpace(a.Val)
+						if skipLink(link) {
+							continue
+						}
+						linkSet[link] = true
 					}
 				}
 			}
@@ -33,10 +37,32 @@ func Extract(data string) ([]string, error) {
 	}
 	getLinks(doc)
 
-	links := make([]string, 0)
+	links := make([]string, 0, len(linkSet))
 	for link := range linkSet {
 		links = append(links, link)
 	}
 
 	return links, nil
+}
+
+func skipLink(link string) bool {
+	if link == "" {
+		return true
+	}
+
+	if strings.HasPrefix(link, "#") ||
+		strings.HasPrefix(link, "mailto:") ||
+		strings.HasPrefix(link, "tel:") ||
+		strings.HasPrefix(link, "javascript:") {
+		return true
+	}
+
+	exts := []string{".pdf", ".doc", ".docx", ".xlsx", ".ppt", ".zip"}
+	for _, ext := range exts {
+		if strings.HasSuffix(strings.ToLower(link), ext) {
+			return true
+		}
+	}
+
+	return false
 }
