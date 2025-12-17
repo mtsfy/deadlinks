@@ -46,12 +46,16 @@ within the domain and identifies those that return error responses.`,
 		w := tabwriter.NewWriter(os.Stdout, 10, 0, 3, ' ', 0)
 		defer w.Flush()
 
-		fmt.Fprintln(w, "PAGE\tLINK\tSTATUS")
-		fmt.Fprintln(w, "----\t---------\t------")
+		fmt.Fprintln(w, "\033[97mPAGE\tLINK\tSTATUS\033[0m")
+		fmt.Fprintln(w, "\033[97m----\t---------\t------\033[0m")
 
 		for page, links := range deadLinks {
 			for _, link := range links {
-				fmt.Fprintf(w, "%s\t%s\t❌ Dead\n", page, link)
+				if link.Internal {
+					fmt.Fprintf(w, "\033[31m%s\t%s\tDead\033[0m\n", page, link.Link)
+				} else {
+					fmt.Fprintf(w, "\033[33m%s\t%s\tMaybe dead\033[0m\n", page, link.Link)
+				}
 			}
 		}
 	},
