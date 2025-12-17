@@ -1,0 +1,12 @@
+bin
+out.txt
+
+.gitignore
+.dockerignore
+.vscode
+.DS_Store
+.git
+
+Makefile
+READEME.md
+Dockerfile
